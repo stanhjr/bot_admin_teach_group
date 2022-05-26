@@ -86,6 +86,17 @@ class DataApi:
             return s.query(Groups.id, Groups.title).filter(
                 and_(Groups.is_active == 1, Groups.is_admin_group == 0)).all()
 
+    def get_student_group_for_admin(self, message: types.Message):
+        with self.session() as s:
+            group_list = []
+            admin = s.query(Admins).filter(Admins.telegram_id == message.from_user.id, Admins.is_admin == 1).first()
+            if admin:
+                for group in admin.groups:
+                    if group.is_admin_group == 0 and group.is_reply_chat == 0:
+                        tuple_group = group.chat_id, group.title
+                        group_list.append(tuple_group)
+            return group_list
+
     def get_admin_users_for_bind(self):
         with self.session() as s:
             return s.query(Admins.id, Admins.first_name).filter(Admins.is_admin == 1).all()
@@ -94,6 +105,12 @@ class DataApi:
         with self.session() as s:
             s.query(Groups).filter(Groups.id == group_id).update({"is_admin_group": 1})
             s.query(Groups).filter(Groups.id != group_id).update({"is_admin_group": 0})
+            s.commit()
+
+    def set_review_group(self, group_id):
+        with self.session() as s:
+            s.query(Groups).filter(Groups.id == group_id).update({"is_reply_chat": 1})
+            s.query(Groups).filter(Groups.id != group_id).update({"is_reply_chat": 0})
             s.commit()
 
     def get_admin_group_chat_id(self):
@@ -106,6 +123,10 @@ class DataApi:
             if result:
                 return [x[0] for x in result]
             return []
+
+    def get_chat_id_for_reply(self):
+        with self.session() as s:
+            return s.query(Groups.chat_id).filter(Groups.is_reply_chat == 1).first()[0]
 
     def get_students_telegram_id(self):
         with self.session() as s:
@@ -127,21 +148,20 @@ class DataApi:
         with self.session() as s:
             result_list = []
             admin = s.query(Admins).filter(and_(Admins.id == message.from_user.id, Admins.is_admin == 1)).first()
-
-            for group in admin.groups:
-                group_tuple = group.id, group.title
-                result_list.append(group_tuple)
-
+            if admin:
+                for group in admin.groups:
+                    group_tuple = group.id, group.title
+                    result_list.append(group_tuple)
             return result_list
 
     def create_lesson(self, title, chat_id, date_time_obj):
         with self.session() as s:
-            # date_time_obj = datetime.strptime(date_time_str, '%d/%m/%y %H:%M')
             lesson = Lessons(title=title,
                              date_time=date_time_obj,
                              chat_id=chat_id)
             s.add(lesson)
             s.commit()
+            return True
 
     def get_lesson_for_time_in_10_min(self, date_time_obj):
         with self.session() as s:
@@ -180,15 +200,11 @@ class DataApi:
             group = s.query(Groups).filter(and_(Groups.id == group_id,
                                                 Groups.is_active == 1,
                                                 Groups.is_admin_group == 0)).first()
-            # for students in group.students:
             return [students.id for students in group.students]
 
 
 data_api = DataApi()
 date_time_str = '31/03/22 20:30'
 date_time_obj = datetime.strptime(date_time_str, '%d/%m/%y %H:%M')
-print(date_time_obj)
-# data_api.create_lesson("Первый урок", date_time_obj, 123456)
 
-# print(data_api.get_lesson_for_time_60_min(date_time_obj))
 

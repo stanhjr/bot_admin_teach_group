@@ -2,7 +2,6 @@ import time
 from datetime import datetime
 from contextlib import contextmanager
 
-from aiogram import md
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, BigInteger, Table, DateTime
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -30,14 +29,14 @@ def session():
 association_table_admins = Table(
     "association_table_admins",
     Base.metadata,
-    Column("students_id", ForeignKey("students.id")),
+    Column("admins_id", ForeignKey("admins.id")),
     Column("telegram_groups_id", ForeignKey("telegram_groups.id")),
 )
 
 association_table_students = Table(
     "association_table_students",
     Base.metadata,
-    Column("admins_id", ForeignKey("admins.id")),
+    Column("students_id", ForeignKey("students.id")),
     Column("telegram_groups_id", ForeignKey("telegram_groups.id")),
 )
 
@@ -87,7 +86,7 @@ class Groups(Base):
     title = Column(String(240))
     is_admin_group = Column(Integer, default=0)
     is_reply_chat = Column(Integer, default=0)
-    users = relationship(
+    admins = relationship(
         "Admins", secondary=association_table_admins, back_populates="groups"
     )
     students = relationship(
