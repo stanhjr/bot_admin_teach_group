@@ -12,11 +12,11 @@ from aiogram.utils.exceptions import ChatNotFound, PaymentProviderInvalid, BotKi
 
 from deploy.config import TOKEN, ADMIN_IDS
 from markup.markup import super_admin_menu, admin_menu, student_menu, get_groups_for_super_admin, get_groups_for_bind, \
-    get_admins_for_bind, cancel_menu, get_student_group_for_bind, get_groups_for_bind_review
+    get_admins_for_bind, cancel_menu, get_student_group_for_bind, get_groups_for_bind_review, get_student_group_for_admin
 
 from messages import MESSAGES
 from models.db_api import data_api
-from states import SetAdminGroup, CreateLesson, StudentReview
+from states import SetAdminGroup, CreateLesson, StudentReview, SendMessageForStudent, SendMessageForAllStudent
 
 bot = Bot(token=TOKEN, parse_mode='HTML')
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -47,14 +47,6 @@ async def start(message: types.Message):
         await bot.send_message(message.chat.id, MESSAGES["start_ok"], reply_markup=reply_markup)
 
 
-# test
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.GROUP))
-async def get_user_group(message: types.Message):
-    admins = await bot.get_chat_administrators(message.chat.id)
-    for admin in admins:
-        print(admin, type(admin))
-
-
 # add user in group
 @dp.message_handler(content_types=[ContentType.NEW_CHAT_MEMBERS])
 async def new_members_handler(message: types.Message):
@@ -68,6 +60,80 @@ async def new_members_handler(message: types.Message):
             data_api.create_student(message, new_member)
     else:
         data_api.activate_group(message)
+
+
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Отправить сообщение всем студентам'))
+async def send_message_for_all_student(message: types.Message):
+    if message.from_user.id in ADMIN_IDS:
+        await bot.send_message(message.from_user.id,
+                               text=MESSAGES["enter_message_for_all_student"],
+                               reply_markup=cancel_menu)
+        await SendMessageForAllStudent.first()
+
+
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), state=SendMessageForAllStudent.text)
+async def call_set_admin_group(message: types.Message, state: FSMContext):
+    students_telegram_id = data_api.get_all_students_telegram_id()
+    if students_telegram_id:
+        for chat_id in students_telegram_id:
+            await bot.send_message(chat_id=chat_id, text=message.text)
+
+    await bot.send_message(message.from_user.id,
+                           text=MESSAGES["enter_message_ok"],
+                           reply_markup=super_admin_menu)
+    await state.finish()
+
+
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Отправить сообщение группе студентов'))
+async def send_message_for_all_student(message: types.Message):
+    if message.from_user.id in data_api.get_admin_telegram_id():
+        await bot.send_message(message.from_user.id,
+                               text=MESSAGES["bind_group"],
+                               reply_markup=get_student_group_for_admin(message))
+        await SendMessageForStudent.first()
+
+
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('s_m_'), state=SendMessageForStudent.chat_id)
+async def create_lesson_step_two(callback_query: types.CallbackQuery, state: FSMContext):
+    if callback_query.from_user.id in data_api.get_admin_telegram_id():
+        chat_id = callback_query.data[4:]
+        await state.update_data(chat_id=chat_id)
+        await bot.send_message(callback_query.from_user.id,
+                               text=MESSAGES["enter_message_for_group"],
+                               reply_markup=cancel_menu)
+        await SendMessageForStudent.next()
+
+
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), state=SendMessageForStudent.text)
+async def send_message_for_all_student(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    chat_id = data.get("chat_id")
+    students_telegram_id = data_api.get_students_telegram_id_for_chat_id_group(chat_id=chat_id)
+    for chat_id in students_telegram_id:
+        await bot.send_message(chat_id=chat_id, text=message.text)
+    await bot.send_message(message.from_user.id,
+                           text=MESSAGES["enter_message_ok"],
+                           reply_markup=admin_menu)
+    await state.finish()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # left admin is admin group
@@ -115,11 +181,6 @@ async def call_set_admin_group(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
                            text=MESSAGES["bind_group_review"],
                            reply_markup=super_admin_menu)
-
-
-
-
-
 
 
 @dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("➕ Установить преподователя для группы"))
@@ -237,6 +298,9 @@ async def create_lesson(message: types.Message, state: FSMContext):
                            reply_markup=student_menu)
 
     await state.finish()
+
+
+
 
 
 if __name__ == '__main__':

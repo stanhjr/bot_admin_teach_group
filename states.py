@@ -15,6 +15,14 @@ class StudentReview(StatesGroup):
     text = State()
 
 
+class SendMessageForStudent(StatesGroup):
+    chat_id = State()
+    text = State()
+
+
+class SendMessageForAllStudent(StatesGroup):
+    text = State()
+
 
 
 

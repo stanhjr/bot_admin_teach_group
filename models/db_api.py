@@ -200,7 +200,19 @@ class DataApi:
             group = s.query(Groups).filter(and_(Groups.id == group_id,
                                                 Groups.is_active == 1,
                                                 Groups.is_admin_group == 0)).first()
-            return [students.id for students in group.students]
+            return [students.telegram_id for students in group.students]
+
+    def get_students_telegram_id_for_chat_id_group(self, chat_id):
+        with self.session() as s:
+            group = s.query(Groups).filter(and_(Groups.chat_id == chat_id,
+                                                Groups.is_active == 1,
+                                                Groups.is_admin_group == 0)).first()
+            return [students.telegram_id for students in group.students]
+
+    def get_all_students_telegram_id(self):
+        with self.session() as s:
+            students = s.query(Students.telegram_id).all()
+            return [student[0] for student in students]
 
 
 data_api = DataApi()
