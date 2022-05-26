@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta
 
 from aiogram import Bot, types
 from aiogram import Dispatcher
@@ -10,8 +11,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.utils.exceptions import ChatNotFound, PaymentProviderInvalid, BotKicked
 
 from deploy.config import TOKEN, ADMIN_IDS
-from markup.markup import user_menu, main_menu, get_groups_for_super_admin, get_groups_for_bind, get_admins_for_bind, \
-    create_lesson_menu
+from markup.markup import super_admin_menu, admin_menu, student_menu, get_groups_for_super_admin, get_groups_for_bind, \
+    get_admins_for_bind, cancel_menu
 
 from messages import MESSAGES
 from models.db_api import data_api
@@ -21,19 +22,29 @@ bot = Bot(token=TOKEN, parse_mode='HTML')
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 
+async def get_reply_markup(message: types.Message):
+    if message.from_user.id in ADMIN_IDS:
+        return super_admin_menu
+    if message.from_user.id in data_api.get_admin_telegram_id():
+        return admin_menu
+    if message.from_user.id in data_api.get_students_telegram_id():
+        return student_menu
+
+
 @dp.message_handler(text="❌Отмена")
 async def cancel_currency(message: types.Message, state: FSMContext):
     await state.reset_data()
     await state.finish()
-    await bot.send_message(message.chat.id, MESSAGES["сanceled"], reply_markup=main_menu)
+    reply_markup = await get_reply_markup(message)
+    if reply_markup:
+        await bot.send_message(message.chat.id, MESSAGES["сanceled"], reply_markup=reply_markup)
 
 
 @dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), commands=['start'])
 async def start(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await bot.send_message(message.chat.id, MESSAGES["start_user"], reply_markup=user_menu)
-    else:
-        await bot.send_message(message.chat.id, MESSAGES["start_ok"], reply_markup=main_menu, parse_mode="Markdown")
+    reply_markup = await get_reply_markup(message)
+    if reply_markup:
+        await bot.send_message(message.chat.id, MESSAGES["start_ok"], reply_markup=reply_markup)
 
 
 # test
@@ -52,9 +63,9 @@ async def new_members_handler(message: types.Message):
     new_member = message.new_chat_members[0]
     if new_member.id != bot_id:
         if message.chat.id == data_api.get_admin_group_chat_id():
-            data_api.create_user(message, new_member, is_admin=True)
+            data_api.create_admin(message, new_member, is_admin=True)
         else:
-            data_api.create_user(message, new_member, is_admin=False)
+            data_api.create_student(message, new_member)
     else:
         data_api.activate_group(message)
 
@@ -86,7 +97,7 @@ async def call_set_admin_group(callback_query: types.CallbackQuery):
     data_api.set_admin_group(group_id)
     await bot.send_message(callback_query.from_user.id,
                            text=MESSAGES["new_admin_group"],
-                           reply_markup=main_menu)
+                           reply_markup=super_admin_menu)
 
 
 @dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Привязать админа к группе'))
@@ -100,7 +111,7 @@ async def bind_admin_group(message: types.Message):
         else:
             await bot.send_message(message.from_user.id,
                                    text=MESSAGES["bind_not_group"],
-                                   reply_markup=main_menu)
+                                   reply_markup=super_admin_menu)
 
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('g_b_'))
@@ -121,11 +132,11 @@ async def call_set_admin_group(callback_query: types.CallbackQuery, state: FSMCo
     if data_api.set_user_admin_for_group(user_id=user_id, group_id=group_id):
         await bot.send_message(callback_query.from_user.id,
                                text=MESSAGES["bind_ok"],
-                               reply_markup=main_menu)
+                               reply_markup=super_admin_menu)
     else:
         await bot.send_message(callback_query.from_user.id,
                                text=MESSAGES["bind_error"],
-                               reply_markup=main_menu)
+                               reply_markup=super_admin_menu)
     await state.finish()
 
 
@@ -134,7 +145,7 @@ async def create_lesson(message: types.Message, state: FSMContext):
     if message.from_user.id in data_api.get_admin_telegram_id():
         await bot.send_message(message.from_user.id,
                                text=MESSAGES["enter_title_lesson"],
-                               reply_markup=create_lesson_menu)
+                               reply_markup=cancel_menu)
 
         await CreateLesson.first()
 
@@ -145,7 +156,7 @@ async def create_lesson(message: types.Message, state: FSMContext):
         await state.update_data(title=message.text)
         await bot.send_message(message.from_user.id,
                                text=MESSAGES["enter_time_lesson"],
-                               reply_markup=create_lesson_menu)
+                               reply_markup=cancel_menu)
 
         await CreateLesson.next()
 
@@ -155,14 +166,17 @@ async def create_lesson(message: types.Message, state: FSMContext):
     if message.from_user.id in data_api.get_admin_telegram_id():
         data = await state.get_data()
         title = data.get("title")
-        date_time = message.text
-        print(title)
-        print(date_time)
-        await bot.send_message(message.from_user.id,
-                               text=MESSAGES["enter_lesson_ok"],
-                               reply_markup=main_menu)
+        try:
+            date_time_obj = datetime.strptime(message.text, '%d/%m/%y %H:%M')
+            print(title)
+            print(date_time_obj)
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["enter_lesson_ok"],
+                                   reply_markup=admin_menu)
+            await state.finish()
+        except ValueError:
+            await CreateLesson.previous()
 
-        await state.finish()
 
 
 

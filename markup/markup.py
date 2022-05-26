@@ -55,21 +55,31 @@ def get_admins_for_bind():
     return inline_kb_full
 
 
-
-get_my_groups_button = KeyboardButton("👩‍👧‍👧Все группы")
-send_invoice_button = KeyboardButton("💰Отправить оплату")
-download_button = KeyboardButton("📈Отчет")
-create_invoice_button = KeyboardButton("➕Добавить оплату")
+cancel_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 cancel_button = KeyboardButton("❌Отмена")
+cancel_menu.add(cancel_button)
 
-contacts_button = KeyboardButton("Контакты")
-contract_offer_button = KeyboardButton("Договор офферты")
-services_button = KeyboardButton("Услуги и оплата")
-service_button = KeyboardButton("Услуги")
+super_admin_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+enter_super_group_button = KeyboardButton("➕ Назначить супер группу")
+create_admin_for_group = KeyboardButton("➕ Установить преподователя для группы")
+create_reply_group = KeyboardButton("➕ Назначить группу для получения отзывов")
+super_admin_menu.add(enter_super_group_button)
+super_admin_menu.add(create_admin_for_group)
+super_admin_menu.add(create_reply_group)
+super_admin_menu.add(cancel_button)
 
-user_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(contacts_button, contract_offer_button, services_button, service_button)
 
-main_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(download_button)
-main_menu.add(send_invoice_button, create_invoice_button)
+admin_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+create_lesson = KeyboardButton("➕ Создать новый урок")
+create_message = KeyboardButton("➕ Отправить сообщение ученикам")
+admin_menu.add(create_lesson)
+admin_menu.add(create_message)
+admin_menu.add(cancel_button)
 
-create_lesson_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(cancel_button)
+
+student_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+create_reply = KeyboardButton("➕ Оставить отзыв")
+student_menu.add(create_reply)
+
+
+empty_menu = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)

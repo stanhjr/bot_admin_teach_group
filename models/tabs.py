@@ -27,53 +27,56 @@ def session():
         connection.close()
 
 
-association_table = Table(
-    "association",
+association_table_admins = Table(
+    "association_table_admins",
     Base.metadata,
-    Column("users_id", ForeignKey("users.id")),
+    Column("students_id", ForeignKey("students.id")),
+    Column("telegram_groups_id", ForeignKey("telegram_groups.id")),
+)
+
+association_table_students = Table(
+    "association_table_students",
+    Base.metadata,
+    Column("admins_id", ForeignKey("admins.id")),
     Column("telegram_groups_id", ForeignKey("telegram_groups.id")),
 )
 
 
-class Users(Base):
-    __tablename__ = 'users'
+class Admins(Base):
+    __tablename__ = 'admins'
     id = Column(Integer, unique=True, primary_key=True)
     telegram_id = Column(BigInteger, unique=True)
     username = Column(String(120))
     first_name = Column(String(120))
     last_name = Column(String(120))
-    is_admin = Column(Integer, default=0)
-    date_add = Column(BigInteger)
+    is_admin = Column(Integer, default=1)
     groups = relationship(
-        "Groups", secondary=association_table, back_populates="users"
+        "Groups", secondary=association_table_admins, back_populates="admins"
     )
 
     def __init__(self, telegram_id, username, first_name, last_name):
         self.telegram_id = telegram_id
         self.first_name = first_name
         self.last_name = last_name
-        self.date_add = time.time()
-        if not username:
-            self.username = self.nice_print
+        self.username = username
 
-    @property
-    def get_date_add(self):
-        return datetime.fromtimestamp(self.date_add).strftime('%Y-%m-%d')
 
-    @property
-    def url(self) -> str:
-        return f"tg://user?id={self.telegram_id}"
+class Students(Base):
+    __tablename__ = 'students'
+    id = Column(Integer, unique=True, primary_key=True)
+    telegram_id = Column(BigInteger, unique=True)
+    username = Column(String(120))
+    first_name = Column(String(120))
+    last_name = Column(String(120))
+    groups = relationship(
+        "Groups", secondary=association_table_students, back_populates="students"
+    )
 
-    @property
-    def mention(self) -> str:
-        return md.hlink(self.first_name, self.url)
-
-    @property
-    def nice_print(self) -> str:
-        out = self.mention
-        if self.username:
-            out += f" [@{self.username}]"
-        return out
+    def __init__(self, telegram_id, username, first_name, last_name):
+        self.telegram_id = telegram_id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.username = username
 
 
 class Groups(Base):
@@ -83,8 +86,12 @@ class Groups(Base):
     is_active = Column(Integer, default=1)
     title = Column(String(240))
     is_admin_group = Column(Integer, default=0)
+    is_reply_chat = Column(Integer, default=0)
     users = relationship(
-        "Users", secondary=association_table, back_populates="groups"
+        "Admins", secondary=association_table_admins, back_populates="groups"
+    )
+    students = relationship(
+        "Students", secondary=association_table_students, back_populates="groups"
     )
 
     def __init__(self, chat_id, title):
@@ -92,44 +99,24 @@ class Groups(Base):
         self.title = title
 
 
-# class Payment(Base):
-#     __tablename__ = 'payment'
-#     id = Column(Integer, unique=True, primary_key=True)
-#     payment_date = Column(Integer)
-#     paid = Column(Boolean, default=False)
-#     user_id = Column(Integer, ForeignKey('users.id'))
-#
-#     def __init__(self, user_id, payment_date):
-#         self.user_id = user_id
-#         self.payment_date = payment_date
-#
-#     @property
-#     def get_paid(self):
-#         if self.paid:
-#             return "True"
-#         return "False"
-#
-#     @property
-#     def get_payment_date(self):
-#         if self.payment_date:
-#             return datetime.fromtimestamp(self.payment_date).strftime('%Y-%m-%d')
-#
-#     @property
-#     def get_payment_time(self):
-#         if self.payment_date:
-#             return datetime.fromtimestamp(self.payment_date).strftime('%H:%M')
-
 class Lessons(Base):
     __tablename__ = 'lessons'
     id = Column(Integer, unique=True, primary_key=True)
     chat_id = Column(BigInteger)
     title = Column(String(240))
     date_time = Column(DateTime())
+    send_10_min = Column(Integer, default=0)
+    send_60_min = Column(Integer, default=0)
 
     def __init__(self, title, date_time, chat_id):
         self.title = title
         self.chat_id = chat_id
         self.date_time = date_time
+
+
+
+
+
 
 
 Base.metadata.create_all(engine)
