@@ -1,3 +1,4 @@
+import asyncio
 import re
 from datetime import datetime, timedelta
 
@@ -8,7 +9,7 @@ from aiogram.dispatcher.filters import ChatTypeFilter, Text
 from aiogram.types import ContentType, ChatType
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.utils.exceptions import ChatNotFound, PaymentProviderInvalid, BotKicked
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from deploy.config import TOKEN, ADMIN_IDS
 from markup.markup import super_admin_menu, admin_menu, student_menu, get_groups_for_super_admin, get_groups_for_bind, \
@@ -19,7 +20,10 @@ from models.db_api import data_api
 from states import SetAdminGroup, CreateLesson, StudentReview, SendMessageForStudent, SendMessageForAllStudent
 
 bot = Bot(token=TOKEN, parse_mode='HTML')
-dp = Dispatcher(bot, storage=MemoryStorage())
+loop = asyncio.get_event_loop()
+dp = Dispatcher(bot, storage=MemoryStorage(), loop=loop)
+
+scheduler = AsyncIOScheduler()
 
 
 async def get_reply_markup(message: types.Message):
@@ -296,12 +300,34 @@ async def create_lesson(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id,
                            text=MESSAGES["enter_review_cancel"],
                            reply_markup=student_menu)
-
     await state.finish()
 
 
+async def send_message_for_lesson_in_10_min():
+    lessons_list = data_api.get_lesson_for_time_in_10_min(datetime.now())
+    for student_list, title in lessons_list:
+        for chat_id in student_list:
+            title = '<b>Начало занятия через 10 минут!</b>\n\n' + title
+            await bot.send_message(chat_id=chat_id, text=title)
 
+
+async def send_message_for_lesson_in_60_min():
+    lessons_list = data_api.get_lesson_for_time_in_10_min(datetime.now())
+    for student_list, title in lessons_list:
+        for chat_id in student_list:
+            title = '<b>Начало занятия через час!</b>\n\n' + title
+            await bot.send_message(chat_id=chat_id, text=title)
+
+
+async def garbage_lessons_collector():
+    data_api.delete_old_lessons()
 
 
 if __name__ == '__main__':
+
+    scheduler.add_job(func=send_message_for_lesson_in_10_min, trigger='interval', seconds=60)
+    scheduler.add_job(func=send_message_for_lesson_in_60_min, trigger='interval', seconds=60)
+    scheduler.add_job(func=garbage_lessons_collector, trigger='interval', seconds=60 * 60 * 12)
+    scheduler.start()
     executor.start_polling(dp, skip_updates=True)
+

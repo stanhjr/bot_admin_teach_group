@@ -172,9 +172,10 @@ class DataApi:
                      Lessons.send_10_min == 0)).all()
 
             for lesson in lessons:
-                lesson_tuple = lesson.chat_id, lesson.title
-                lessons_list.append(lesson_tuple)
+                student_tuple = self.get_students_telegram_id_for_chat_id_group(lesson.chat_id), lesson.title
+                lessons_list.append(student_tuple)
                 lesson.send_10_min = 1
+                lesson.send_60_min = 1
                 s.add(lesson)
             s.commit()
             return lessons_list
@@ -188,19 +189,12 @@ class DataApi:
                      Lessons.send_60_min == 0)).all()
 
             for lesson in lessons:
-                lesson_tuple = lesson.chat_id, lesson.title
-                lessons_list.append(lesson_tuple)
+                student_tuple = self.get_students_telegram_id_for_chat_id_group(lesson.chat_id), lesson.title
+                lessons_list.append(student_tuple)
                 lesson.send_60_min = 1
                 s.add(lesson)
             s.commit()
             return lessons_list
-
-    def get_students_telegram_id_for_group(self, group_id):
-        with self.session() as s:
-            group = s.query(Groups).filter(and_(Groups.id == group_id,
-                                                Groups.is_active == 1,
-                                                Groups.is_admin_group == 0)).first()
-            return [students.telegram_id for students in group.students]
 
     def get_students_telegram_id_for_chat_id_group(self, chat_id):
         with self.session() as s:
@@ -213,6 +207,11 @@ class DataApi:
         with self.session() as s:
             students = s.query(Students.telegram_id).all()
             return [student[0] for student in students]
+
+    def delete_old_lessons(self):
+        with self.session() as s:
+            s.query(Lessons).filter(Lessons.date_time + timedelta(days=2) < datetime.now()).delete()
+            s.commit()
 
 
 data_api = DataApi()
