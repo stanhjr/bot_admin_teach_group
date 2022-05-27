@@ -77,7 +77,6 @@ class DataApi:
 
     def get_active_group(self):
         with self.session() as s:
-            # [(1, 'тестим нового бота')]
             return s.query(Groups.id, Groups.title).filter(Groups.is_active == 1).all()
 
     def get_active_group_for_bind(self):
