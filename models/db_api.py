@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 
 from aiogram import types
 from sqlalchemy import and_
-from sqlalchemy.sql import func
 
 from models.tabs import session, Admins, Groups, Lessons, Students
 
@@ -215,7 +214,3 @@ class DataApi:
 
 
 data_api = DataApi()
-date_time_str = '31/03/22 20:30'
-date_time_obj = datetime.strptime(date_time_str, '%d/%m/%y %H:%M')
-
-

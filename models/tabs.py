@@ -1,8 +1,6 @@
-import time
-from datetime import datetime
 from contextlib import contextmanager
 
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, BigInteger, Table, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, BigInteger, Table, DateTime
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
@@ -111,11 +109,6 @@ class Lessons(Base):
         self.title = title
         self.chat_id = chat_id
         self.date_time = date_time
-
-
-
-
-
 
 
 Base.metadata.create_all(engine)
