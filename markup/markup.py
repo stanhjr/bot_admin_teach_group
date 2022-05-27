@@ -15,10 +15,11 @@ def get_student_group_for_admin(message: types.Message):
 
 def get_groups_for_super_admin():
     groups = data_api.get_active_group()
-    inline_kb_full = InlineKeyboardMarkup(row_width=2)
-    for group_id, group_title in groups:
-        inline_kb_full.add(InlineKeyboardButton(group_title, callback_data=f"g_a_{group_id}"))
-    return inline_kb_full
+    if groups:
+        inline_kb_full = InlineKeyboardMarkup(row_width=2)
+        for group_id, group_title in groups:
+            inline_kb_full.add(InlineKeyboardButton(group_title, callback_data=f"g_a_{group_id}"))
+        return inline_kb_full
 
 
 def get_groups_for_bind():
@@ -41,10 +42,11 @@ def get_groups_for_bind_review():
 
 def get_admins_for_bind():
     admins = data_api.get_admin_users_for_bind()
-    inline_kb_full = InlineKeyboardMarkup(row_width=2)
-    for user_id, user_first_name in admins:
-        inline_kb_full.add(InlineKeyboardButton(user_first_name, callback_data=f"u_a_{user_id}"))
-    return inline_kb_full
+    if admins:
+        inline_kb_full = InlineKeyboardMarkup(row_width=2)
+        for user_id, user_first_name in admins:
+            inline_kb_full.add(InlineKeyboardButton(user_first_name, callback_data=f"u_a_{user_id}"))
+        return inline_kb_full
 
 
 def get_student_group_for_bind(message: types.Message):

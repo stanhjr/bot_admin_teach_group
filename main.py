@@ -64,7 +64,7 @@ async def new_members_handler(message: types.Message):
         data_api.activate_group(message)
 
 
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Отправить сообщение всем студентам'))
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("📧 Отправить сообщение всем студентам"))
 async def send_message_for_all_student(message: types.Message):
     if message.from_user.id in ADMIN_IDS:
         await bot.send_message(message.from_user.id,
@@ -86,13 +86,19 @@ async def call_set_admin_group(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Отправить сообщение группе студентов'))
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("📧  Отправить сообщение группе студентов"))
 async def send_message_for_all_student(message: types.Message):
     if message.from_user.id in data_api.get_admin_telegram_id():
-        await bot.send_message(message.from_user.id,
-                               text=MESSAGES["bind_group"],
-                               reply_markup=get_student_group_for_admin(message))
-        await SendMessageForStudent.first()
+        reply_markup = get_student_group_for_admin(message)
+        if reply_markup:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["bind_group"],
+                                   reply_markup=reply_markup)
+            await SendMessageForStudent.first()
+        else:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["not_student_bind"],
+                                   reply_markup=admin_menu)
 
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('s_m_'), state=SendMessageForStudent.chat_id)
@@ -119,25 +125,6 @@ async def send_message_for_all_student(message: types.Message, state: FSMContext
     await state.finish()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # left admin is admin group
 @dp.message_handler(content_types=[ContentType.LEFT_CHAT_MEMBER])
 async def left_members_handler(message: types.Message):
@@ -151,13 +138,18 @@ async def left_members_handler(message: types.Message):
         data_api.deactivate_group(message)
 
 
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Назначить супер группу'))
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("🆒 Установить супер группу"))
 async def set_admin_group(message: types.Message):
     if message.from_user.id in ADMIN_IDS:
-        await bot.send_message(message.from_user.id,
+        reply_markup = get_groups_for_super_admin()
+        if reply_markup:
+            await bot.send_message(message.from_user.id,
                                text=MESSAGES["edit_admin_group"],
-                               reply_markup=get_groups_for_super_admin())
-
+                               reply_markup=reply_markup)
+        else:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["bind_not_group"],
+                                   reply_markup=super_admin_menu)
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('g_a_'))
 async def call_set_admin_group(callback_query: types.CallbackQuery):
@@ -168,12 +160,19 @@ async def call_set_admin_group(callback_query: types.CallbackQuery):
                            reply_markup=super_admin_menu)
 
 
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Назначить группу для получения отзывов'))
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("➕ Установить  группу для получения отзывов"))
 async def set_admin_group(message: types.Message):
     if message.from_user.id in ADMIN_IDS:
-        await bot.send_message(message.from_user.id,
-                               text=MESSAGES["bind_group"],
-                               reply_markup=get_groups_for_bind_review())
+        reply_markup = get_groups_for_bind_review()
+        if reply_markup:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["bind_group"],
+                                   reply_markup=reply_markup)
+        else:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["bind_not_group"],
+                                   reply_markup=super_admin_menu)
+
 
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('g_r_'))
@@ -185,7 +184,7 @@ async def call_set_admin_group(callback_query: types.CallbackQuery):
                            reply_markup=super_admin_menu)
 
 
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("➕ Установить преподователя для группы"))
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("👨‍🏫 Назначить преподователя для группы"))
 async def bind_admin_group(message: types.Message):
     if message.from_user.id in ADMIN_IDS:
         reply_markup = get_groups_for_bind()
@@ -225,13 +224,17 @@ async def call_set_admin_group(callback_query: types.CallbackQuery, state: FSMCo
     await state.finish()
 
 
-@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Создать новый урок'))
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("🔔 Создать новый урок"))
 async def create_lesson(message: types.Message, state: FSMContext):
     if message.from_user.id in data_api.get_admin_telegram_id():
-        await bot.send_message(message.from_user.id,
-                               text=MESSAGES["bind_group"],
-                               reply_markup=get_student_group_for_bind(message))
-        await CreateLesson.first()
+        reply_markup = get_student_group_for_bind(message)
+        if reply_markup:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["bind_group"],
+                                   reply_markup=reply_markup)
+            await CreateLesson.first()
+        else:
+            await message.answer(text=MESSAGES["bind_not_group"], reply_markup=admin_menu)
 
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('g_s_'), state=CreateLesson.chat_id)
