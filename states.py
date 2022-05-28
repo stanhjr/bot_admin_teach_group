@@ -7,8 +7,11 @@ class SetAdminGroup(StatesGroup):
 
 class CreateLesson(StatesGroup):
     chat_id = State()
-    title = State()
-    date_time = State()
+    time = State()
+
+
+class DeleteLesson(StatesGroup):
+    lesson_id = State()
 
 
 class StudentReview(StatesGroup):
@@ -22,6 +25,7 @@ class SendMessageForStudent(StatesGroup):
 
 class SendMessageForAllStudent(StatesGroup):
     text = State()
+
 
 
 

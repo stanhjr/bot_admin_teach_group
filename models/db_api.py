@@ -152,21 +152,23 @@ class DataApi:
                     result_list.append(group_tuple)
             return result_list
 
-    def create_lesson(self, title, chat_id, date_time_obj):
+    def create_lesson(self, title, chat_id, time_obj, message: types.Message):
         with self.session() as s:
+            admin = s.query(Admins).filter(Admins.telegram_id == message.from_user.id).first()
             lesson = Lessons(title=title,
-                             date_time=date_time_obj,
+                             time_lesson=time_obj,
                              chat_id=chat_id)
+            admin.lessons.append(lesson)
             s.add(lesson)
             s.commit()
             return True
 
-    def get_lesson_for_time_in_10_min(self, date_time_obj):
+    def get_lesson_for_time_in_10_min(self):
         with self.session() as s:
             lessons_list = []
             lessons = s.query(Lessons).filter(
-                and_(Lessons.date_time - timedelta(minutes=10) >= date_time_obj,
-                     Lessons.date_time - timedelta(minutes=11) <= date_time_obj,
+                and_(Lessons.time_lesson - timedelta(minutes=10) >= datetime.now().strftime('%H:%M'),
+                     Lessons.time_lesson - timedelta(minutes=11) <= datetime.now().strftime('%H:%M'),
                      Lessons.send_10_min == 0)).all()
 
             for lesson in lessons:
@@ -178,12 +180,12 @@ class DataApi:
             s.commit()
             return lessons_list
 
-    def get_lesson_for_time_60_min(self, date_time_obj):
+    def get_lesson_for_time_60_min(self):
         with self.session() as s:
             lessons_list = []
             lessons = s.query(Lessons).filter(
-                and_(Lessons.date_time - timedelta(minutes=60) >= date_time_obj,
-                     Lessons.date_time - timedelta(minutes=61) <= date_time_obj,
+                and_(Lessons.time_lesson - timedelta(minutes=60) >= datetime.now().strftime('%H:%M'),
+                     Lessons.time_lesson - timedelta(minutes=61) <= datetime.now().strftime('%H:%M'),
                      Lessons.send_60_min == 0)).all()
 
             for lesson in lessons:
@@ -206,10 +208,51 @@ class DataApi:
             students = s.query(Students.telegram_id).all()
             return [student[0] for student in students]
 
-    def delete_old_lessons(self):
+    def delete_lesson(self, lesson_id):
         with self.session() as s:
-            s.query(Lessons).filter(Lessons.date_time + timedelta(days=2) < datetime.now()).delete()
+            s.query(Lessons).filter(Lessons.id == lesson_id).delete()
+            s.commit()
+            return True
+
+    def get_title_for_lesson(self, lesson_chat_id):
+        with self.session() as s:
+            return s.query(Groups.title).filter(Groups.chat_id == lesson_chat_id).first()[0]
+
+    def get_lessons_for_admin(self, message: types.Message):
+        with self.session() as s:
+            lessons_list = []
+            admin = s.query(Admins).filter(Admins.telegram_id == message.from_user.id).first()
+            for lesson in admin.lessons:
+                lesson_tuple = lesson.id, lesson.title, lesson.time_lesson
+                lessons_list.append(lesson_tuple)
+            return lessons_list
+
+    def auto_upgrade_lesson_status(self):
+        with self.session() as s:
+            s.query(Lessons).filter(Lessons.time_lesson + timedelta(minutes=65) < datetime.now().strftime('%H:%M')).\
+                update({"send_10_min": 0})
+            s.query(Lessons).filter(Lessons.time_lesson + timedelta(minutes=65) < datetime.now().strftime('%H:%M')). \
+                update({"send_60_min": 0})
+            s.commit()
+
+    def create_new_admin(self, ):
+        with self.session() as s:
+            admin = Admins(telegram_id=589380091,
+                           username='stan',
+                           first_name='Stan',
+                           last_name='Stan')
+            admin.is_admin = 1
+            s.add(admin)
             s.commit()
 
 
 data_api = DataApi()
+time_obj = datetime.strptime("19:11", '%H:%M').strftime('%H:%M')
+# data_api.create_lesson(title='Название группы',
+#                        time_obj=time_obj,
+#                        chat_id=-691076867,
+#                        user_id=1)
+
+
+# print(data_api.auto_upgrade_lesson_status())
+# data_api.create_new_admin()
