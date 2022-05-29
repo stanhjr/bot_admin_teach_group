@@ -226,7 +226,7 @@ class DataApi:
             lessons_list = []
             admin = s.query(Admins).filter(Admins.telegram_id == message.from_user.id).first()
             for lesson in admin.lessons:
-                lesson_tuple = lesson.id, lesson.title, lesson.time_lesson
+                lesson_tuple = lesson.id, lesson.title, lesson.time_lesson, lesson.weekday
                 lessons_list.append(lesson_tuple)
             return lessons_list
 

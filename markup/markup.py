@@ -4,6 +4,17 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from models.db_api import data_api
 
 
+LESSON_WEEKDAY = {
+    1: "пн",
+    2: "вт",
+    3: "ср",
+    4: "чт",
+    5: "пт",
+    6: "сб",
+    7: "вск"
+}
+
+
 def get_student_group_for_admin(message: types.Message):
     groups = data_api.get_student_group_for_admin(message)
     if groups:
@@ -62,8 +73,9 @@ def get_lessons_for_admin(message: types.Message):
     lessons = data_api. get_lessons_for_admin(message)
     if lessons:
         inline_kb_full = InlineKeyboardMarkup(row_width=2)
-        for lesson_id, lesson_title, lesson_time in lessons:
-            text = f'{lesson_time} {lesson_title}'
+        for lesson_id, lesson_title, lesson_time, lesson_weekday in lessons:
+            lesson_weekday = LESSON_WEEKDAY.get(lesson_weekday)
+            text = f'{lesson_time} {lesson_weekday} {lesson_title}'
             inline_kb_full.add(InlineKeyboardButton(text, callback_data=f"l_d_{lesson_id}"))
         return inline_kb_full
 
