@@ -102,15 +102,17 @@ class Lessons(Base):
     id = Column(Integer, unique=True, primary_key=True)
     chat_id = Column(BigInteger)
     title = Column(String(240))
+    weekday = Column(Integer)
     time_lesson = Column(Time())
     send_10_min = Column(Integer, default=0)
     send_60_min = Column(Integer, default=0)
     parent_id = Column(Integer, ForeignKey("admins.id"))
     admin = relationship("Admins", back_populates="lessons")
 
-    def __init__(self, title, time_lesson, chat_id):
+    def __init__(self, title, time_lesson, weekday, chat_id):
         self.title = title
         self.chat_id = chat_id
+        self.weekday = weekday
         self.time_lesson = time_lesson
 
 

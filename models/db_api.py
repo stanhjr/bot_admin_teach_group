@@ -152,12 +152,13 @@ class DataApi:
                     result_list.append(group_tuple)
             return result_list
 
-    def create_lesson(self, title, chat_id, time_obj, message: types.Message):
+    def create_lesson(self, title, chat_id, time_obj, message: types.Message, weekday):
         with self.session() as s:
             admin = s.query(Admins).filter(Admins.telegram_id == message.from_user.id).first()
             lesson = Lessons(title=title,
                              time_lesson=time_obj,
-                             chat_id=chat_id)
+                             chat_id=chat_id,
+                             weekday=weekday)
             admin.lessons.append(lesson)
             s.add(lesson)
             s.commit()
@@ -169,7 +170,8 @@ class DataApi:
             lessons = s.query(Lessons).filter(
                 and_(Lessons.time_lesson - timedelta(minutes=10) >= datetime.now().strftime('%H:%M'),
                      Lessons.time_lesson - timedelta(minutes=11) <= datetime.now().strftime('%H:%M'),
-                     Lessons.send_10_min == 0)).all()
+                     Lessons.send_10_min == 0,
+                     Lessons.weekday == datetime.isoweekday(datetime.now()))).all()
 
             for lesson in lessons:
                 student_tuple = self.get_students_telegram_id_for_chat_id_group(lesson.chat_id), lesson.title
@@ -186,7 +188,8 @@ class DataApi:
             lessons = s.query(Lessons).filter(
                 and_(Lessons.time_lesson - timedelta(minutes=60) >= datetime.now().strftime('%H:%M'),
                      Lessons.time_lesson - timedelta(minutes=61) <= datetime.now().strftime('%H:%M'),
-                     Lessons.send_60_min == 0)).all()
+                     Lessons.send_60_min == 0,
+                     Lessons.weekday == datetime.isoweekday(datetime.now()))).all()
 
             for lesson in lessons:
                 student_tuple = self.get_students_telegram_id_for_chat_id_group(lesson.chat_id), lesson.title

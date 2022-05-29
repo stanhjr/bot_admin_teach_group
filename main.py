@@ -23,6 +23,15 @@ dp = Dispatcher(bot, storage=MemoryStorage(), loop=loop)
 
 scheduler = AsyncIOScheduler()
 
+WEEKDAY = {
+    "пн": 1,
+    "вт": 2,
+    "ср": 3,
+    "чт": 4,
+    "пт": 5,
+    "сб": 6,
+    "вск": 7
+}
 
 async def get_reply_markup(message: types.Message):
     if message.from_user.id in ADMIN_IDS:
@@ -256,11 +265,16 @@ async def create_lesson(message: types.Message, state: FSMContext):
         chat_id = data.get("chat_id")
         title = data_api.get_title_for_lesson(lesson_chat_id=chat_id)
         try:
-            time_obj = datetime.strptime(message.text.strip(), '%H:%M').strftime('%H:%M')
+            message_data = message.text.split()
+            weekday = WEEKDAY.get(message_data[0].lower())
+            if weekday is None:
+                raise ValueError
+            time_obj = datetime.strptime(message_data[1], '%H:%M').strftime('%H:%M')
             if data_api.create_lesson(title=title,
                                       chat_id=chat_id,
                                       time_obj=time_obj,
-                                      message=message):
+                                      message=message,
+                                      weekday=weekday):
                 await bot.send_message(message.from_user.id,
                                        text=MESSAGES["enter_lesson_ok"],
                                        reply_markup=admin_menu)
@@ -269,7 +283,8 @@ async def create_lesson(message: types.Message, state: FSMContext):
                                        text=MESSAGES["enter_lesson_error"],
                                        reply_markup=admin_menu)
             await state.finish()
-        except ValueError:
+
+        except (ValueError, IndexError):
             await bot.send_message(message.from_user.id,
                                    text=MESSAGES["enter_time_lesson"],
                                    reply_markup=cancel_menu)
@@ -326,24 +341,26 @@ async def create_lesson(message: types.Message, state: FSMContext):
 
 async def send_message_for_lesson_in_10_min():
     lessons_list = data_api.get_lesson_for_time_in_10_min()
-    for student_list, title in lessons_list:
-        for chat_id in student_list:
-            text = '<b>Начало занятия через 10 минут!</b>'
-            try:
-                await bot.send_message(chat_id=chat_id, text=text)
-            except:
-                ...
+    if lessons_list:
+        for student_list, title in lessons_list:
+            for chat_id in student_list:
+                text = '<b>Начало занятия через 10 минут!</b>'
+                try:
+                    await bot.send_message(chat_id=chat_id, text=text)
+                except:
+                    ...
 
 
 async def send_message_for_lesson_in_60_min():
     lessons_list = data_api.get_lesson_for_time_60_min()
-    for student_list, title in lessons_list:
-        for chat_id in student_list:
-            text = '<b>Начало занятия через час!</b>'
-            try:
-                await bot.send_message(chat_id=chat_id, text=text)
-            except:
-                ...
+    if lessons_list:
+        for student_list, title in lessons_list:
+            for chat_id in student_list:
+                text = '<b>Начало занятия через час!</b>'
+                try:
+                    await bot.send_message(chat_id=chat_id, text=text)
+                except:
+                    ...
 
 
 async def garbage_lessons_collector():
