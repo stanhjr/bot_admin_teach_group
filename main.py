@@ -30,7 +30,7 @@ WEEKDAY = {
     "чт": 4,
     "пт": 5,
     "сб": 6,
-    "вск": 7
+    "вс": 7
 }
 
 async def get_reply_markup(message: types.Message):
