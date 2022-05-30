@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from sqlalchemy import Column, Integer, String, ForeignKey, BigInteger, Table, Time
+from sqlalchemy import Column, Integer, String, ForeignKey, BigInteger, Table, Time, Text
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
@@ -102,18 +102,21 @@ class Lessons(Base):
     id = Column(Integer, unique=True, primary_key=True)
     chat_id = Column(BigInteger)
     title = Column(String(240))
+    text = Column(Text())
     weekday = Column(Integer)
     time_lesson = Column(Time())
     send_10_min = Column(Integer, default=0)
     send_60_min = Column(Integer, default=0)
+    send_text = Column(Integer, default=0)
     parent_id = Column(Integer, ForeignKey("admins.id"))
     admin = relationship("Admins", back_populates="lessons")
 
-    def __init__(self, title, time_lesson, weekday, chat_id):
+    def __init__(self, title, time_lesson, weekday, chat_id, text):
         self.title = title
         self.chat_id = chat_id
         self.weekday = weekday
         self.time_lesson = time_lesson
+        self.text = text
 
 
 Base.metadata.create_all(engine)

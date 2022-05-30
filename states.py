@@ -7,6 +7,13 @@ class SetAdminGroup(StatesGroup):
 
 class CreateLesson(StatesGroup):
     chat_id = State()
+    text = State()
+    time = State()
+
+
+class UpdateLesson(StatesGroup):
+    lesson_id = State()
+    text = State()
     time = State()
 
 

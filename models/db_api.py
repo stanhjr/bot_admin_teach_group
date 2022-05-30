@@ -152,15 +152,25 @@ class DataApi:
                     result_list.append(group_tuple)
             return result_list
 
-    def create_lesson(self, title, chat_id, time_obj, message: types.Message, weekday):
+    def create_lesson(self, title, chat_id, time_obj, message: types.Message, weekday, text):
         with self.session() as s:
             admin = s.query(Admins).filter(Admins.telegram_id == message.from_user.id).first()
             lesson = Lessons(title=title,
                              time_lesson=time_obj,
                              chat_id=chat_id,
-                             weekday=weekday)
+                             weekday=weekday,
+                             text=text)
             admin.lessons.append(lesson)
             s.add(lesson)
+            s.commit()
+            return True
+
+    def update_lesson(self, lesson_id, text, time_obg, weekday):
+        with self.session() as s:
+            if text:
+                s.query(Lessons).filter(Lessons.id == lesson_id).update({"text": text})
+            if time_obg:
+                s.query(Lessons).filter(Lessons.id == lesson_id).update({"time_lesson": time_obg, "weekday": weekday})
             s.commit()
             return True
 
@@ -195,6 +205,23 @@ class DataApi:
                 student_tuple = self.get_students_telegram_id_for_chat_id_group(lesson.chat_id), lesson.title
                 lessons_list.append(student_tuple)
                 lesson.send_60_min = 1
+                s.add(lesson)
+            s.commit()
+            return lessons_list
+
+    def get_lessons_after_time(self):
+        with self.session() as s:
+            lessons_list = []
+            lessons = s.query(Lessons).filter(
+                and_(Lessons.time_lesson + timedelta(minutes=90) <= datetime.now().strftime('%H:%M'),
+                     Lessons.time_lesson + timedelta(minutes=91) >= datetime.now().strftime('%H:%M'),
+                     Lessons.send_text == 0,
+                     Lessons.weekday == datetime.isoweekday(datetime.now()))).all()
+
+            for lesson in lessons:
+                student_tuple = self.get_students_telegram_id_for_chat_id_group(lesson.chat_id), lesson.text
+                lessons_list.append(student_tuple)
+                lesson.send_text = 1
                 s.add(lesson)
             s.commit()
             return lessons_list
@@ -236,6 +263,9 @@ class DataApi:
                 update({"send_10_min": 0})
             s.query(Lessons).filter(Lessons.time_lesson + timedelta(minutes=65) < datetime.now().strftime('%H:%M')). \
                 update({"send_60_min": 0})
+            s.query(Lessons).filter(Lessons.time_lesson + timedelta(minutes=100) < datetime.now().strftime('%H:%M')). \
+                update({"send_text": 0})
+
             s.commit()
 
     def create_new_admin(self, ):
@@ -250,12 +280,4 @@ class DataApi:
 
 
 data_api = DataApi()
-time_obj = datetime.strptime("19:11", '%H:%M').strftime('%H:%M')
-# data_api.create_lesson(title='Название группы',
-#                        time_obj=time_obj,
-#                        chat_id=-691076867,
-#                        user_id=1)
 
-
-# print(data_api.auto_upgrade_lesson_status())
-# data_api.create_new_admin()

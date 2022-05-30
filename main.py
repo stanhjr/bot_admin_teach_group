@@ -12,10 +12,12 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from deploy.config import TOKEN, ADMIN_IDS
 from markup.markup import super_admin_menu, admin_menu, student_menu, get_groups_for_super_admin, get_groups_for_bind, \
-    get_admins_for_bind, cancel_menu, get_student_group_for_bind, get_groups_for_bind_review, get_student_group_for_admin, get_lessons_for_admin
+    get_admins_for_bind, cancel_menu, get_student_group_for_bind, get_groups_for_bind_review, \
+    get_student_group_for_admin, get_lessons_for_admin, update_cancel_menu, get_lessons_on_update
 from messages.messages import MESSAGES
 from models.db_api import data_api
-from states import SetAdminGroup, CreateLesson, StudentReview, SendMessageForStudent, SendMessageForAllStudent, DeleteLesson
+from states import SetAdminGroup, CreateLesson, StudentReview, SendMessageForStudent, SendMessageForAllStudent,\
+    DeleteLesson, UpdateLesson
 
 bot = Bot(token=TOKEN, parse_mode='HTML')
 loop = asyncio.get_event_loop()
@@ -252,6 +254,17 @@ async def create_lesson_step_two(callback_query: types.CallbackQuery, state: FSM
         chat_id = callback_query.data[4:]
         await state.update_data(chat_id=chat_id)
         await bot.send_message(callback_query.from_user.id,
+                               text=MESSAGES["enter_text_lesson"],
+                               reply_markup=cancel_menu)
+
+        await CreateLesson.next()
+
+
+@dp.message_handler(state=CreateLesson.text)
+async def create_lesson_step_two(message: types.Message, state: FSMContext):
+    if message.from_user.id in data_api.get_admin_telegram_id():
+        await state.update_data(text=message.text)
+        await bot.send_message(message.from_user.id,
                                text=MESSAGES["enter_time_lesson"],
                                reply_markup=cancel_menu)
 
@@ -263,6 +276,7 @@ async def create_lesson(message: types.Message, state: FSMContext):
     if message.from_user.id in data_api.get_admin_telegram_id():
         data = await state.get_data()
         chat_id = data.get("chat_id")
+        text = data.get("text")
         title = data_api.get_title_for_lesson(lesson_chat_id=chat_id)
         try:
             message_data = message.text.split()
@@ -274,7 +288,8 @@ async def create_lesson(message: types.Message, state: FSMContext):
                                       chat_id=chat_id,
                                       time_obj=time_obj,
                                       message=message,
-                                      weekday=weekday):
+                                      weekday=weekday,
+                                      text=text):
                 await bot.send_message(message.from_user.id,
                                        text=MESSAGES["enter_lesson_ok"],
                                        reply_markup=admin_menu)
@@ -320,6 +335,83 @@ async def create_lesson_step_two(callback_query: types.CallbackQuery, state: FSM
         await state.finish()
 
 
+@dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text("✏️ Редактировать урок"))
+async def create_lesson(message: types.Message, state: FSMContext):
+    if message.from_user.id in data_api.get_admin_telegram_id():
+        reply_markup = get_lessons_on_update(message)
+        if reply_markup:
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["bind_lesson_for_update"],
+                                   reply_markup=reply_markup)
+            await UpdateLesson.first()
+        else:
+            await message.answer(text=MESSAGES["bind_not_lesson"], reply_markup=admin_menu)
+
+
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('l_u_'), state=UpdateLesson.lesson_id)
+async def update_step_two(callback_query: types.CallbackQuery, state: FSMContext):
+    if callback_query.from_user.id in data_api.get_admin_telegram_id():
+        lesson_id = callback_query.data[4:]
+        await state.update_data(lesson_id=lesson_id)
+
+        await bot.send_message(callback_query.from_user.id,
+                               text=MESSAGES["enter_text_lesson"],
+                               reply_markup=update_cancel_menu)
+        await UpdateLesson.next()
+
+
+@dp.message_handler(state=UpdateLesson.text)
+async def update_lesson_step_three(message: types.Message, state: FSMContext):
+
+    await state.update_data(text=message.text)
+    await bot.send_message(message.from_user.id,
+                           text=MESSAGES["enter_time_lesson"],
+                           reply_markup=update_cancel_menu)
+
+    await UpdateLesson.next()
+
+
+@dp.message_handler(state=UpdateLesson.time)
+async def create_lesson(message: types.Message, state: FSMContext):
+    if message.from_user.id in data_api.get_admin_telegram_id():
+        data = await state.get_data()
+        lesson_id = data.get("lesson_id")
+        text = data.get("text")
+        try:
+            if text == "👌 Пропустить":
+                text = None
+            if message.text == "👌 Пропустить":
+                time_obj = None
+                weekday = None
+            else:
+                message_data = message.text.split()
+                weekday = WEEKDAY.get(message_data[0].lower())
+                if weekday is None:
+                    raise ValueError
+                time_obj = datetime.strptime(message_data[1], '%H:%M').strftime('%H:%M')
+
+
+            if data_api.update_lesson(lesson_id=lesson_id,
+                                      text=text,
+                                      time_obg=time_obj,
+                                      weekday=weekday):
+
+                await bot.send_message(message.from_user.id,
+                                       text=MESSAGES["update_lesson_ok"],
+                                       reply_markup=admin_menu)
+            else:
+                await bot.send_message(message.from_user.id,
+                                       text=MESSAGES["enter_lesson_error"],
+                                       reply_markup=admin_menu)
+            await state.finish()
+
+        except (ValueError, IndexError):
+            await bot.send_message(message.from_user.id,
+                                   text=MESSAGES["enter_time_lesson"],
+                                   reply_markup=cancel_menu)
+            await CreateLesson.previous()
+
+
 @dp.message_handler(ChatTypeFilter(chat_type=ChatType.PRIVATE), Text('➕ Оставить отзыв'))
 async def create_lesson(message: types.Message):
     if message.from_user.id in data_api.get_students_telegram_id():
@@ -363,6 +455,18 @@ async def send_message_for_lesson_in_60_min():
                     ...
 
 
+async def send_message_after_lesson():
+    lessons_list = data_api.get_lessons_after_time()
+    if lessons_list:
+        for student_list, text in lessons_list:
+            for chat_id in student_list:
+                try:
+                    await bot.send_message(chat_id=chat_id, text=text)
+                except:
+                    ...
+
+
+
 async def garbage_lessons_collector():
     data_api.auto_upgrade_lesson_status()
 
@@ -371,6 +475,7 @@ if __name__ == '__main__':
 
     scheduler.add_job(func=send_message_for_lesson_in_10_min, trigger='interval', seconds=60)
     scheduler.add_job(func=send_message_for_lesson_in_60_min, trigger='interval', seconds=60)
+    scheduler.add_job(func=send_message_after_lesson, trigger='interval', seconds=60)
     scheduler.add_job(func=garbage_lessons_collector, trigger='interval', seconds=60 * 30)
     scheduler.start()
     executor.start_polling(dp, skip_updates=True)
