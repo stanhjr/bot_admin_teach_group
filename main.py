@@ -89,7 +89,10 @@ async def call_set_admin_group(message: types.Message, state: FSMContext):
     students_telegram_id = data_api.get_all_students_telegram_id()
     if students_telegram_id:
         for chat_id in students_telegram_id:
-            await bot.send_message(chat_id=chat_id, text=message.text)
+            try:
+                await bot.send_message(chat_id=chat_id, text=message.text)
+            except:
+                ...
 
     await bot.send_message(message.from_user.id,
                            text=MESSAGES["enter_message_ok"],
